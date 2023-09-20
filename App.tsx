@@ -1,5 +1,5 @@
 import { FlatList, Image, SafeAreaView, StyleSheet, View } from 'react-native';
-import {useState} from 'react'
+import {useState, memo, useCallback, FC} from 'react'
 import {Button} from './src/components/atoms'
 
 interface PostData {
@@ -7,6 +7,41 @@ interface PostData {
   image:string
   like:number
 }
+
+interface ItemProps {
+  data:PostData
+  onLike:()=>void
+  onDislike:()=>void
+}
+
+const Item:FC<ItemProps> = memo((item) => {
+  console.log(`Rendering item with data: ${item.data.like}`);
+  return (
+    <View        
+      style={styles.cardContainer}>
+        <Image 
+          style={styles.imageContent}
+          source={{uri:item.data.image}} />
+        <View style={styles.cardFooterContainer}>
+          <View style={{flex:1, alignItems:'flex-start'}}>
+            <Button
+              color='#FFFFFF'
+              textColor='#707070'>
+              {`${item.data.like} Like`}
+            </Button>
+          </View>
+            <Button onPress={item.onLike}>Like</Button>
+            <Button
+              onPress={item.onDislike}
+              color="#DB2C2C">
+                Dislike
+            </Button>
+        </View>
+    </View>
+  )
+},(prevProps,nextProps)=>{
+  return prevProps.data.like === nextProps.data.like
+});
 
 export default function App() {
 
@@ -28,55 +63,33 @@ export default function App() {
     },
   ])
 
-  const onLikeAction = (isLike:boolean,id?:number) => {
-    if (id !== undefined) {
-      const updatePost:PostData[] = postData.map(post => {
-        if (post.id === id) {
-          return {...post, like: isLike?post.like + 1:post.like > 0 ? post.like - 1:0}
-        }
-        return post
-      })
-      setPostData(updatePost)
-    }else{
-      const updatePost:PostData[] = postData.map(post => {
-          return {...post, like: isLike?post.like + 1:post.like > 0 ? post.like - 1:0}        
-      })
-      setPostData(updatePost)
-    }
-  }  
+  const onLikeAction = useCallback(
+    (isLike:boolean,id?:number) => {
+      setPostData((prevData)=>
+        prevData.map((post)=> {
+          if (id === undefined || post.id === id) {
+            return {
+              ...post,
+              like:isLike ? post.like + 1 : post.like > 0 ? post.like - 1 : 0
+            }
+          }
+          return post
+        })
+      )
+    },
+    [setPostData]
+  )
 
   const onResetAll = () => { 
     const resetPostData = postData.map(post=> (
       {...post, like:0}
     ))
     setPostData(resetPostData)
-  }
+  }  
 
-  const renderItem = ({item}:{item:PostData}) => { 
-    return (
-      <View        
-        style={styles.cardContainer}>
-          <Image 
-            style={styles.imageContent}
-            source={{uri:item.image}} />
-          <View style={styles.cardFooterContainer}>
-            <View style={{flex:1, alignItems:'flex-start'}}>
-              <Button
-                color='#FFFFFF'
-                textColor='#707070'>
-                {`${item.like} Like`}
-              </Button>
-            </View>
-              <Button onPress={()=>onLikeAction(true,item.id)}>Like</Button>
-              <Button
-                onPress={()=>onLikeAction(false,item.id)}
-                color="#DB2C2C">
-                  Dislike
-              </Button>
-          </View>
-      </View>
-    )
-  }
+  const renderItem = (({item}:{item:PostData}) => {   
+    return <Item onLike={()=>onLikeAction(true,item.id)} onDislike={()=>onLikeAction(false,item.id)} data={item}/>
+  })
 
   return (
     <SafeAreaView style={styles.container}>
@@ -100,7 +113,8 @@ export default function App() {
         contentContainerStyle={styles.contentContainerStyle}
         showsVerticalScrollIndicator={false}
         renderItem={renderItem}
-        data={postData}/>
+        data={postData}
+        keyExtractor={(item) => item.id.toString()}/>
     </SafeAreaView>
   );
 }
